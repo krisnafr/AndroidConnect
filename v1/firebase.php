@@ -18,7 +18,8 @@ class Firebase {
     private function sendPushNotification($fields) {
 
         //define key
-        define('FIREBASE_API_KEY', 'PUT_YOUR_API_KEY_HERE');
+        define('FIREBASE_API_KEY', 
+                'AAAAurYuOpA:APA91bF8IbnFKGO5CN6Wkc_RbgDcHC4alA8w0KjjnfUj19jxMtSd8zdFZtct7TWRA7tkhnm_gbvo3IPwbsrBLxnDxjxNYGJ4MEvBxYzgPWr-LtfjYDMlvkiIyT3lsqdZBJuHw-y-OQ6o');
 
         //firebase server url to send the curl request
         $url = 'https://fcm.googleapis.com/fcm/send';

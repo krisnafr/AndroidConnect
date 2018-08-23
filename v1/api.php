@@ -45,6 +45,26 @@ if (isset($_GET['apicall'])) {
     $base_path = '../gambar/';
     switch ($_GET['apicall']) {
 
+        //the REGISTER DEVICE
+        case 'c_device':
+            isTheseParametersAvailable(array('nip', 'token'));
+            $nip = $_POST['nip'];
+            $token = $_POST['token'];
+
+            $db = new DbOperation();
+
+            $result = $db->regDevice($nip, $token);
+
+            if ($result == 0) {
+                $response['error'] = false;
+                $response['message'] = 'Device registered successfully';
+            }
+            if ($result == 1) {
+                $response['error'] = true;
+                $response['message'] = 'Device already registered';
+            }
+            break;
+
         //the UPLOAD image
         case 'up_img_info_update':
             require_once '../include/dbConnect.php';
@@ -108,15 +128,12 @@ if (isset($_GET['apicall'])) {
                     $_POST['nip'], $_POST['isi']
             );
 
-
             //if the record is created adding success to response
             if ($result) {
                 //record is created means there is no error
                 $response['error'] = false;
                 //in message we have a success message
                 $response['message'] = 'Info berhasil ditambahkan';
-                //and we are getting all the heroes from the database in the response
-                //$response['infos'] = $db->rInfo();
             } else {
                 //if record is not added that means there is an error 
                 $response['error'] = true;
@@ -166,9 +183,38 @@ if (isset($_GET['apicall'])) {
             isTheseParametersAvailable(array('a', 'b', 'c', 'd', 'e', 'f', 'g'));
             $response['error'] = false;
             $response['message'] = 'Request successfully completed';
-            $response['target'] = $db->rTargetUser(
+            $response['tokens'] = $db->rTargetUser(
                     $no, $_POST['a'], $_POST['b'], $_POST['c'], $_POST['d'], $_POST['e'], $_POST['f'], $_POST['g']
             );
+
+            require_once 'push.php';
+            require_once 'firebase.php';
+
+            //creating a new push
+            $push = null;
+            //first check if the push has an image with it
+            if (isset($_FILES['pic']['name'])) {
+                $push = new Push(
+                        "Informasi Baru!", $_POST['nip'], $_FILES['pic']['name']
+                );
+            } else {
+                //if the push don't have an image give null in place of image
+                $push = new Push(
+                        "Informasi Baru!", $_POST['nip'], null
+                );
+            }
+
+            //getting the push from push object
+            $mPushNotification = $push->getPush();
+
+            //getting the token from database object 
+            $devicetoken = $response['tokens'];
+
+            //creating firebase class object 
+            $firebase = new Firebase();
+
+            //sending push notification and displaying result 
+            echo $firebase->send($devicetoken, $mPushNotification);
 
             break;
 
@@ -189,17 +235,13 @@ if (isset($_GET['apicall'])) {
             if ($result) {
                 //record is created means there is no error
                 $response['error'] = false;
-
                 //in message we have a success message
                 $response['message'] = 'User berhasil ditambahkan';
-
                 //and we are getting all the heroes from the database in the response
                 $response['msgs'] = $db->getUser();
             } else {
-
                 //if record is not added that means there is an error 
                 $response['error'] = true;
-
                 //and we have the error message
                 $response['message'] = 'Terjadi kesalahan';
             }

@@ -4,6 +4,7 @@ class DbOperation {
 
     //Database connection link
     private $con;
+    private $server_ip = "cilukbaa.000webhostapp.com";
 
     //Class constructor
     function __construct() {
@@ -18,6 +19,30 @@ class DbOperation {
         $this->con = $db->connect();
     }
 
+    //Register Device
+    function regDevice($nip, $token) {
+        if (!$this->isNipExist($nip)) {
+            $stmt = $this->con->prepare("INSERT INTO device (nip, token) VALUES (?,?) ");
+            $stmt->bind_param("ss", $nip, $token);
+            if ($stmt->execute()) {
+                return 0; //return 0 means success
+            } else {
+                return 1; //returning 1 means nip already exist
+            }
+            $stmt->close();
+        }
+    }
+
+    function isNipExist($nip) {
+        $stmt = $this->con->prepare("SELECT no_device FROM device WHERE nip = ?");
+        $stmt->bind_param("s", $nip);
+        $stmt->execute();
+        $stmt->store_result();
+        $num_rows = $stmt->num_rows;
+        $stmt->close();
+        return $num_rows > 0;
+    }
+
     /*
      * The create operation
      * When this method is called a new record is created in the database
@@ -27,10 +52,8 @@ class DbOperation {
     function cInfo($nip, $isi) {
         $stmt = $this->con->prepare("INSERT INTO info (nip, isi) VALUES (?, ?)");
         $stmt->bind_param("ss", $nip, $isi);
-        if ($stmt->execute()) {
-            return true;
-        }
-        return false;
+        $stmt->execute();
+        $stmt->close();
     }
 
     //Create User
@@ -39,10 +62,8 @@ class DbOperation {
                 . "(nip, password, nama, gambar_user, karyawan, pengawas, admin, fungsional, pamong, program, sik, psd, subbag, wiyata) "
                 . "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->bind_param("ssssiiiiiiiiii", $nip, $password, $nama, $gambar_user, $karyawan, $pengawas, $admin, $fungsional, $pamong, $program, $sik, $psd, $subbag, $wiyata);
-        if ($stmt->execute()) {
-            return true;
-        }
-        return false;
+        $stmt->execute();
+        $stmt->close();
     }
 
     /*
@@ -78,6 +99,23 @@ class DbOperation {
                 . "SELECT nip," . $no . " FROM user WHERE fungsional = ? OR pamong = ? OR program = ? OR sik = ? OR psd = ? OR subbag = ? OR wiyata = ?");
         $stmt->bind_param("iiiiiii", $a, $b, $c, $d, $e, $f, $g);
         $stmt->execute();
+        $stmt->close();
+        //Ambil semua token dari nip target
+        $stmt = $this->con->prepare("SELECT token FROM device, (SELECT nip FROM user WHERE fungsional = ? OR pamong = ? OR program = ? OR sik = ? OR psd = ? OR subbag = ? OR wiyata = ?) AS target "
+                . "WHERE device.nip=target.nip");
+        $stmt->bind_param("iiiiiii", $a, $b, $c, $d, $e, $f, $g);
+        $stmt->execute();
+        $stmt->bind_result($token);
+        
+        $tokens = array();
+        while ($stmt->fetch()) {
+            $temp = array();
+            $temp['token'] = $token;
+
+            array_push($tokens, $temp);
+        }
+        $stmt->close();
+        return $tokens;
     }
 
     //Read All Info
@@ -98,7 +136,7 @@ class DbOperation {
 
             array_push($infos, $info);
         }
-
+        $stmt->close();
         return $infos;
     }
 
@@ -111,36 +149,38 @@ class DbOperation {
         $stmt->bind_result($no, $nama, $isi, $gambar, $status, $waktu);
 
         $infos = array();
-        $server_ip = "cilukbaa.000webhostapp.com";
         while ($stmt->fetch()) {
             $info = array();
             $info['no'] = $no;
             $info['nama'] = $nama;
             $info['isi'] = $isi;
-            $info['gambar'] = 'https://' . $server_ip . "/gambar/info/" . $gambar;
+            $info['gambar'] = 'https://' . $this->server_ip . "/gambar/info/" . $gambar;
             $info['status'] = $status;
             $info['waktu'] = $waktu;
 
             array_push($infos, $info);
         }
-
+        $stmt->close();
         return $infos;
     }
 
     function rInfoSend($nip) {
-        $stmt = $this->con->prepare("SELECT no_info, isi FROM `info` WHERE nip = ?");
+        $stmt = $this->con->prepare("SELECT no_info, isi, gambar_info, waktu FROM info WHERE nip = ?");
         $stmt->bind_param("s", $nip);
         $stmt->execute();
-        $stmt->bind_result($no, $isi);
+        $stmt->bind_result($no, $isi, $gambar, $waktu);
 
         $info = array();
         while ($stmt->fetch()) {
             $temp = array();
             $temp["no_info"] = $no;
             $temp["isi"] = $isi;
+            $temp["gambar"] = 'https://' . $this->server_ip . "/gambar/info/" . $gambar;
+            $temp["waktu"] = $waktu;
 
             array_push($info, $temp);
         }
+        $stmt->close();
         return $info;
     }
 
@@ -162,6 +202,7 @@ class DbOperation {
 
             array_push($info, $temp);
         }
+        $stmt->close();
         return $info;
     }
 
@@ -192,7 +233,7 @@ class DbOperation {
 
             array_push($users, $user);
         }
-
+        $stmt->close();
         return $users;
     }
 
@@ -224,7 +265,7 @@ class DbOperation {
 
             array_push($users, $user);
         }
-
+        $stmt->close();
         return $users;
     }
 

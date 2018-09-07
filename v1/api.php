@@ -190,17 +190,22 @@ if (isset($_GET['apicall'])) {
             require_once 'push.php';
             require_once 'firebase.php';
 
+            $sql = "SELECT nama FROM user WHERE nip = " . $_POST['nip'];
+            $res = mysqli_query($con, $sql);
+            $row = mysqli_fetch_assoc($res);
+            $nama = $row["nama"];
+
             //creating a new push
             $push = null;
             //first check if the push has an image with it
             if (isset($_FILES['pic']['name'])) {
                 $push = new Push(
-                        "Informasi Baru!", $_POST['nip'], $_FILES['pic']['name']
+                        "Informasi Baru!", $nama, $_FILES['pic']['name']
                 );
             } else {
                 //if the push don't have an image give null in place of image
                 $push = new Push(
-                        "Informasi Baru!", $_POST['nip'], null
+                        "Informasi Baru!", $nama, null
                 );
             }
 
@@ -308,6 +313,18 @@ if (isset($_GET['apicall'])) {
             break;
 
 //the UPDATE operation
+        case 'u_status':
+            if (isset($_GET['no'])) {
+                isTheseParametersAvailable(array('status'));
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $db->u_status(
+                        $_GET['no'], $_POST['status']
+                );
+            }
+            break;
+
         case 'updatemsg':
             isTheseParametersAvailable(array('no', 'isi'));
             $db = new DbOperation();

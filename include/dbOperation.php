@@ -21,21 +21,20 @@ class DbOperation {
 
     //Register Device
     function regDevice($nip, $token) {
-        if (!$this->isNipExist($nip)) {
+        if ($this->isNipExist($nip)) {
+            $stmt = $this->con->prepare("UPDATE device SET token = ? WHERE nip = ?");
+            $stmt->bind_param("ss", $token, $nip);
+        } else {
             $stmt = $this->con->prepare("INSERT INTO device (nip, token) VALUES (?,?) ");
             $stmt->bind_param("ss", $nip, $token);
-            if ($stmt->execute()) {
-                return 0; //return 0 means success
-            } else {
-                return 1; //returning 1 means nip already exist
-            }
-            $stmt->close();
         }
+        $stmt->execute();
+        $stmt->close();
     }
 
     function isNipExist($nip) {
         $stmt = $this->con->prepare("SELECT no_device FROM device WHERE nip = ?");
-        $stmt->bind_param("s", $nip);
+        $stmt->bind_param("s",$nip);
         $stmt->execute();
         $stmt->store_result();
         $num_rows = $stmt->num_rows;
@@ -105,14 +104,10 @@ class DbOperation {
                 . "WHERE device.nip=target.nip");
         $stmt->bind_param("iiiiiii", $a, $b, $c, $d, $e, $f, $g);
         $stmt->execute();
-        $stmt->bind_result($token);
-        
+        $result = $stmt->get_result();
         $tokens = array();
-        while ($stmt->fetch()) {
-            $temp = array();
-            $temp['token'] = $token;
-
-            array_push($tokens, $temp);
+        while ($token = $result->fetch_assoc()) {
+            array_push($tokens, $token['token']);
         }
         $stmt->close();
         return $tokens;
@@ -273,6 +268,13 @@ class DbOperation {
      * The update operation
      * When this method is called the record with the given id is updated with the new given values
      */
+
+    function u_status($no, $status) {
+        $stmt = $this->con->prepare("UPDATE transaksi SET status = ? WHERE no_transaksi = " . $no);
+        $stmt->bind_param("i", $status);
+        $stmt->execute();
+        $stmt->close();
+    }
 
     function updateMsg($no, $isi) {
         $stmt = $this->con->prepare("UPDATE pesan SET isi = ? WHERE no = ?");

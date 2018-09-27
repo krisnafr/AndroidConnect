@@ -34,7 +34,7 @@ class DbOperation {
 
     function isNipExist($nip) {
         $stmt = $this->con->prepare("SELECT no_device FROM device WHERE nip = ?");
-        $stmt->bind_param("s",$nip);
+        $stmt->bind_param("s", $nip);
         $stmt->execute();
         $stmt->store_result();
         $num_rows = $stmt->num_rows;
@@ -51,6 +51,22 @@ class DbOperation {
     function cInfo($nip, $isi) {
         $stmt = $this->con->prepare("INSERT INTO info (nip, isi) VALUES (?, ?)");
         $stmt->bind_param("ss", $nip, $isi);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    //Create Perintah
+    function cPerintah($surat, $nip) {
+        $stmt = $this->con->prepare("INSERT INTO perintah (id_surat, nip) VALUES (?, ?)");
+        $stmt->bind_param("is", $surat, $nip);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    //Create Laporan
+    function cLaporan($perintah, $isi) {
+        $stmt = $this->con->prepare("INSERT INTO laporan (no_perintah, isi) VALUES (?, ?)");
+        $stmt->bind_param("is", $perintah, $isi);
         $stmt->execute();
         $stmt->close();
     }
@@ -115,7 +131,9 @@ class DbOperation {
 
     //Read All Info
     function rInfo() {
-        $stmt = $this->con->prepare("SELECT no_info, user.nama, waktu, isi, gambar_info FROM info JOIN user ON info.nip = user.nip");
+        $stmt = $this->con->prepare("SELECT no_info, user.nama, waktu, isi, gambar_info "
+                . "FROM info, user "
+                . "WHERE info.nip = user.nip");
         $stmt->execute();
         $stmt->bind_result($no_info, $nama, $waktu, $isi, $gambar);
 
@@ -136,9 +154,11 @@ class DbOperation {
     }
 
     function rInfoNip($nip) {
-        $stmt = $this->con->prepare("SELECT no_transaksi, user.nama, info.isi, info.gambar_info, status, info.waktu "
+        $stmt = $this->con->prepare("SELECT no_transaksi, user.nama, info.isi, "
+                . "info.gambar_info, status, info.waktu "
                 . "FROM `transaksi`, `info`, `user` "
-                . "WHERE transaksi.no_info = info.no_info AND info.nip = user.nip AND transaksi.nip = ?");
+                . "WHERE transaksi.no_info = info.no_info AND info.nip = user.nip AND transaksi.nip = ? "
+                . "ORDER BY no_transaksi ASC");
         $stmt->bind_param("s", $nip);
         $stmt->execute();
         $stmt->bind_result($no, $nama, $isi, $gambar, $status, $waktu);
@@ -149,7 +169,11 @@ class DbOperation {
             $info['no'] = $no;
             $info['nama'] = $nama;
             $info['isi'] = $isi;
-            $info['gambar'] = 'https://' . $this->server_ip . "/gambar/info/" . $gambar;
+            if (!is_null($gambar)) {
+                $info['gambar'] = 'https://' . $this->server_ip . "/gambar/info/" . $gambar;
+            } else {
+                $info['gambar'] = "";
+            }
             $info['status'] = $status;
             $info['waktu'] = $waktu;
 
@@ -168,10 +192,14 @@ class DbOperation {
         $info = array();
         while ($stmt->fetch()) {
             $temp = array();
-            $temp["no_info"] = $no;
-            $temp["isi"] = $isi;
-            $temp["gambar"] = 'https://' . $this->server_ip . "/gambar/info/" . $gambar;
-            $temp["waktu"] = $waktu;
+            $temp['no_info'] = $no;
+            $temp['isi'] = $isi;
+            if (!is_null($gambar)) {
+                $temp['gambar'] = 'https://' . $this->server_ip . "/gambar/info/" . $gambar;
+            } else {
+                $temp['gambar'] = "";
+            }
+            $temp['waktu'] = $waktu;
 
             array_push($info, $temp);
         }
@@ -190,10 +218,10 @@ class DbOperation {
         $info = array();
         while ($stmt->fetch()) {
             $temp = array();
-            $temp["no_transaksi"] = $no;
-            $temp["nama"] = $nama;
-            $temp["status"] = $status;
-            $temp["waktu"] = $waktu;
+            $temp['no_transaksi'] = $no;
+            $temp['nama'] = $nama;
+            $temp['status'] = $status;
+            $temp['waktu'] = $waktu;
 
             array_push($info, $temp);
         }
@@ -203,7 +231,9 @@ class DbOperation {
 
     //Read All User
     function rUser() {
-        $stmt = $this->con->prepare("SELECT nip, password, nama, gambar_user, karyawan, pengawas, admin, fungsional, pamong, program, sik, psd, subbag, wiyata FROM user");
+        $stmt = $this->con->prepare("SELECT nip, password, nama, gambar_user, karyawan, pengawas, admin, "
+                . "fungsional, pamong, program, sik, psd, subbag, wiyata "
+                . "FROM user");
         $stmt->execute();
         $stmt->bind_result($nip, $password, $nama, $gambar_user, $karyawan, $pengawas, $admin, $fungsional, $pamong, $program, $sik, $psd, $subbag, $wiyata);
 
@@ -234,7 +264,10 @@ class DbOperation {
 
     //Read User Nip
     function rUserNip($nip) {
-        $stmt = $this->con->prepare("SELECT nip, password, nama, gambar_user, karyawan, pengawas, admin, fungsional, pamong, program, sik, psd, subbag, wiyata FROM user WHERE nip = ?");
+        $stmt = $this->con->prepare("SELECT nip, password, nama, gambar_user, karyawan, pengawas, admin, "
+                . "fungsional, pamong, program, sik, psd, subbag, wiyata "
+                . "FROM user "
+                . "WHERE nip = ?");
         $stmt->bind_param("s", $nip);
         $stmt->execute();
         $stmt->bind_result($nip, $password, $nama, $gambar_user, $karyawan, $pengawas, $admin, $fungsional, $pamong, $program, $sik, $psd, $subbag, $wiyata);
@@ -264,14 +297,96 @@ class DbOperation {
         return $users;
     }
 
+    //Read Perintah
+    function rPerintah($nip) {
+        $stmt = $this->con->prepare("SELECT no_perintah, surat_tugas.no_surat, perintah.waktu, "
+                . "status, surat_tugas.perihal, surat_tugas.tempat, surat_tugas.waktu, surat_tugas.kategori "
+                . "FROM perintah, surat_tugas "
+                . "WHERE perintah.id_surat = surat_tugas.id_surat AND nip = ?");
+        $stmt->bind_param("s", $nip);
+        $stmt->execute();
+        $stmt->bind_result($noPerintah, $noSurat, $waktu, $status, $perihal, $tempat, $durasi, $kategori);
+
+        $perintah = array();
+
+        while ($stmt->fetch()) {
+            $temp = array();
+            $temp['noPerintah'] = $noPerintah;
+            $temp['noSurat'] = $noSurat;
+            $temp['kategori'] = $kategori;
+            $temp['perihal'] = $perihal;
+            $temp['tempat'] = $tempat;
+            $temp['durasi'] = $durasi;
+            $temp['waktu'] = $waktu;
+            $temp['status'] = $status;
+
+            array_push($perintah, $temp);
+        }
+        $stmt->close();
+        return $perintah;
+    }
+
+    function rLaporan($nip) {
+        $stmt = $this->con->prepare("SELECT no_laporan, no_surat, surat_tugas.perihal, surat_tugas.tempat, "
+                . "surat_tugas.waktu, surat_tugas.kategori, laporan.waktu, laporan.isi, "
+                . "laporan.gambar_laporan1, laporan.gambar_laporan2, laporan.gambar_laporan3 "
+                . "FROM laporan, perintah, surat_tugas "
+                . "WHERE laporan.no_perintah = perintah.no_perintah AND perintah.id_surat = surat_tugas.id_surat "
+                . "AND perintah.nip = ?");
+        $stmt->bind_param("s", $nip);
+        $stmt->execute();
+        $stmt->bind_result($noLap, $noSurat, $perihal, $tempat, $durasi, $kategori, $waktu, $isi, $pic1, $pic2, $pic3);
+
+        $laporan = array();
+
+        while ($stmt->fetch()) {
+            $temp = array();
+            $temp['noLaporan'] = $noLap;
+            $temp['noSurat'] = $noSurat;
+            $temp['kategori'] = $kategori;
+            $temp['perihal'] = $perihal;
+            $temp['tempat'] = $tempat;
+            $temp['durasi'] = $durasi;
+            $temp['waktu'] = $waktu;
+            $temp['isi'] = $isi;
+            if (!is_null($pic1)) {
+                $temp['pic1'] = 'https://' . $this->server_ip . "/gambar/info/" . $pic1;
+            } else {
+                $temp['pic1'] = "";
+            }
+            if (!is_null($pic2)) {
+                $temp['pic2'] = 'https://' . $this->server_ip . "/gambar/info/" . $pic2;
+            } else {
+                $temp['pic2'] = "";
+            }
+            if (!is_null($pic3)) {
+                $temp['pic3'] = 'https://' . $this->server_ip . "/gambar/info/" . $pic3;
+            } else {
+                $temp['pic3'] = "";
+            }
+
+            array_push($laporan, $temp);
+        }
+        $stmt->close();
+        return $laporan;
+    }
+
     /*
      * The update operation
      * When this method is called the record with the given id is updated with the new given values
      */
 
-    function u_status($no, $status) {
+    function uStatus($no, $status) {
         $stmt = $this->con->prepare("UPDATE transaksi SET status = ? WHERE no_transaksi = " . $no);
         $stmt->bind_param("i", $status);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    function uPassword($nip, $pass) {
+        $passw = hash("sha256", $pass);
+        $stmt = $this->con->prepare("UPDATE user SET user.password = ? WHERE nip = ?");
+        $stmt->bind_param("ss", $passw, $nip);
         $stmt->execute();
         $stmt->close();
     }

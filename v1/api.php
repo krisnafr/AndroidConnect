@@ -1,5 +1,6 @@
 <?php
 
+header("Cache-Control: max-age=604800");
 //getting the dboperation class
 require_once '../include/dbOperation.php';
 
@@ -42,7 +43,7 @@ $response = array();
 //print_r(UPLOAD_PATH . $imageName);
 
 if (isset($_GET['apicall'])) {
-    $base_path = '../gambar/';
+    $base_path_pic = '../gambar/';
     switch ($_GET['apicall']) {
 
         //the REGISTER DEVICE
@@ -81,7 +82,7 @@ if (isset($_GET['apicall'])) {
                 $temp = array();
                 $temp['tahun'] = $tahun;
                 $temp['bulan'] = $bulan;
-                $path = $base_path . 'info/';
+                $path = $base_path_pic . 'info/';
                 $year_folder = $path . $temp['tahun'];
                 $month_folder = $year_folder . '/' . $temp['bulan'];
                 $path = $month_folder . '/';
@@ -144,7 +145,7 @@ if (isset($_GET['apicall'])) {
             require_once '../include/dbConnect.php';
             $dbc = new DbConnect();
             $con = $dbc->connect();
-            $path = $base_path . 'info/';
+            $path = $base_path_pic . 'info/';
             $year_folder = $path . date('Y');
             $month_folder = $year_folder . '/' . date('n');
             $path = $month_folder . '/';
@@ -182,7 +183,7 @@ if (isset($_GET['apicall'])) {
 
             isTheseParametersAvailable(array('a', 'b', 'c', 'd', 'e', 'f', 'g'));
             $response['error'] = false;
-            $response['message'] = 'Request successfully completed';
+            $response['message'] = 'Request successfu+lly completed';
             $response['tokens'] = $db->rTargetUser(
                     $no, $_POST['a'], $_POST['b'], $_POST['c'], $_POST['d'], $_POST['e'], $_POST['f'], $_POST['g']
             );
@@ -253,6 +254,83 @@ if (isset($_GET['apicall'])) {
 
             break;
 
+        case 'c_laporan':
+            //first check the parameters required for this request are available or not 
+            isTheseParametersAvailable(array('nop', 'isi'));
+
+            //creating a new dboperation object
+            $db = new DbOperation();
+
+            //creating a new record in the database
+            $result = $db->cLaporan(
+                    $_POST['nop'], $_POST['isi']
+            );
+
+            require_once '../include/dbConnect.php';
+            $dbc = new DbConnect();
+            $con = $dbc->connect();
+            $path = $base_path_pic . 'laporan/';
+            $year_folder = $path . date('Y');
+            $month_folder = $year_folder . '/' . date('n');
+            $path = $month_folder . '/';
+
+            !file_exists($year_folder) && mkdir($year_folder, 0777);
+            !file_exists($month_folder) && mkdir($month_folder, 0777);
+            define('UPLOAD_PATH', $path);
+
+            $sql = "SELECT no_laporan FROM laporan ORDER BY no_laporan ASC";
+            $res = mysqli_query($con, $sql);
+            while ($row = mysqli_fetch_array($res)) {
+                $no = $row['no_laporan'];
+            }
+
+            if (isset($_FILES['pic1']['name'])) {
+                try {
+                    $imageName = $no . "_1.png";
+                    move_uploaded_file($_FILES['pic1']['tmp_name'], UPLOAD_PATH . $imageName);
+                    $paths = date('Y') . '/' . date('n') . '/' . $imageName;
+                    $stmt = $con->prepare("UPDATE laporan SET gambar_laporan1 = ? WHERE no_laporan = " . $no);
+                    $stmt->bind_param("s", $paths);
+                    $stmt->execute();
+                    $stmt->close();
+                } catch (Exception $e) {
+                    $response['error'] = true;
+                    $response['message'] = 'Could not upload file';
+                }
+            }
+
+            if (isset($_FILES['pic2']['name'])) {
+                try {
+                    $imageName = $no . "_2.png";
+                    move_uploaded_file($_FILES['pic2']['tmp_name'], UPLOAD_PATH . $imageName);
+                    $paths = date('Y') . '/' . date('n') . '/' . $imageName;
+                    $stmt = $con->prepare("UPDATE laporan SET gambar_laporan2 = ? WHERE no_laporan = " . $no);
+                    $stmt->bind_param("s", $paths);
+                    $stmt->execute();
+                    $stmt->close();
+                } catch (Exception $e) {
+                    $response['error'] = true;
+                    $response['message'] = 'Could not upload file';
+                }
+            }
+
+            if (isset($_FILES['pic3']['name'])) {
+                try {
+                    $imageName = $no . "_3.png";
+                    move_uploaded_file($_FILES['pic3']['tmp_name'], UPLOAD_PATH . $imageName);
+                    $paths = date('Y') . '/' . date('n') . '/' . $imageName;
+                    $stmt = $con->prepare("UPDATE laporan SET gambar_laporan3 = ? WHERE no_laporan = " . $no);
+                    $stmt->bind_param("s", $paths);
+                    $stmt->execute();
+                    $stmt->close();
+                } catch (Exception $e) {
+                    $response['error'] = true;
+                    $response['message'] = 'Could not upload file';
+                }
+            }
+
+            break;
+
 //the READ operation
         case 'r_info':
             $db = new DbOperation();
@@ -312,6 +390,28 @@ if (isset($_GET['apicall'])) {
             }
             break;
 
+        case 'r_surat':
+            if (isset($_GET['nip'])) {
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $response['surat'] = $db->rPerintah(
+                        $_GET['nip']
+                );
+            }
+            break;
+
+        case 'r_laporan':
+            if (isset($_GET['nip'])) {
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $response['laporan'] = $db->rLaporan(
+                        $_GET['nip']
+                );
+            }
+            break;
+
 //the UPDATE operation
         case 'u_status':
             if (isset($_GET['no'])) {
@@ -319,8 +419,20 @@ if (isset($_GET['apicall'])) {
                 $db = new DbOperation();
                 $response['error'] = false;
                 $response['message'] = 'Request successfully completed';
-                $db->u_status(
+                $db->uStatus(
                         $_GET['no'], $_POST['status']
+                );
+            }
+            break;
+
+        case 'u_pass':
+            if (isset($_GET['nip'])) {
+                isTheseParametersAvailable(array('pass'));
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $db->uPassword(
+                        $_GET['nip'], $_POST['pass']
                 );
             }
             break;

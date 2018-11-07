@@ -22,6 +22,26 @@ class DbOperation {
     //Register Device
     function regDevice($nip, $token) {
         if ($this->isNipExist($nip)) {
+
+            $sql = "SELECT token FROM device WHERE nip = " . $nip;
+            $res = mysqli_query($this->con, $sql);
+            $row = mysqli_fetch_assoc($res);
+            $tokens = $row["token"];
+
+            require_once 'push.php';
+            require_once 'firebase.php';
+
+            $push = new Push(
+                    "Perhatian!", "NIP Anda login di device lain, mohon logout", null
+            );
+
+            $mPushNotification = $push->getPush();
+            $tokenss = array();
+            array_push($tokenss, $tokens);
+            $devicetoken = $tokenss;
+            $firebase = new Firebase();
+            echo $firebase->send($devicetoken, $mPushNotification);
+
             $stmt = $this->con->prepare("UPDATE device SET token = ? WHERE nip = ?");
             $stmt->bind_param("ss", $token, $nip);
         } else {
@@ -116,14 +136,15 @@ class DbOperation {
         $stmt->execute();
         $stmt->close();
         //Ambil semua token dari nip target
-        $stmt = $this->con->prepare("SELECT token FROM device, (SELECT nip FROM user WHERE fungsional = ? OR pamong = ? OR program = ? OR sik = ? OR psd = ? OR subbag = ? OR wiyata = ?) AS target "
+        $stmt = $this->con->prepare("SELECT token FROM device, "
+                . "(SELECT nip FROM user WHERE fungsional = ? OR pamong = ? OR program = ? OR sik = ? OR psd = ? OR subbag = ? OR wiyata = ?) AS target "
                 . "WHERE device.nip=target.nip");
         $stmt->bind_param("iiiiiii", $a, $b, $c, $d, $e, $f, $g);
         $stmt->execute();
         $result = $stmt->get_result();
         $tokens = array();
-        while ($token = $result->fetch_assoc()) {
-            array_push($tokens, $token['token']);
+        while ($temp = $result->fetch_assoc()) {
+            array_push($tokens, $temp['token']);
         }
         $stmt->close();
         return $tokens;
@@ -184,7 +205,10 @@ class DbOperation {
     }
 
     function rInfoSend($nip) {
-        $stmt = $this->con->prepare("SELECT no_info, isi, gambar_info, waktu FROM info WHERE nip = ?");
+        $stmt = $this->con->prepare("SELECT no_info, isi, gambar_info, waktu "
+                . "FROM info "
+                . "WHERE nip = ? "
+                . "ORDER BY no_info ASC");
         $stmt->bind_param("s", $nip);
         $stmt->execute();
         $stmt->bind_result($no, $isi, $gambar, $waktu);
@@ -210,7 +234,8 @@ class DbOperation {
     function rInfoStatus($no) {
         $stmt = $this->con->prepare("SELECT no_transaksi, user.nama, status, transaksi.waktu "
                 . "FROM transaksi, user "
-                . "WHERE transaksi.nip=user.nip AND no_info = ?");
+                . "WHERE transaksi.nip=user.nip AND no_info = ? "
+                . "ORDER BY no_transaksi ASC");
         $stmt->bind_param("i", $no);
         $stmt->execute();
         $stmt->bind_result($no, $nama, $status, $waktu);
@@ -302,7 +327,8 @@ class DbOperation {
         $stmt = $this->con->prepare("SELECT no_perintah, surat_tugas.no_surat, perintah.waktu, "
                 . "status, surat_tugas.perihal, surat_tugas.tempat, surat_tugas.waktu, surat_tugas.kategori "
                 . "FROM perintah, surat_tugas "
-                . "WHERE perintah.id_surat = surat_tugas.id_surat AND nip = ?");
+                . "WHERE perintah.id_surat = surat_tugas.id_surat AND nip = ? "
+                . "ORDER BY no_perintah ASC");
         $stmt->bind_param("s", $nip);
         $stmt->execute();
         $stmt->bind_result($noPerintah, $noSurat, $waktu, $status, $perihal, $tempat, $durasi, $kategori);
@@ -332,7 +358,8 @@ class DbOperation {
                 . "laporan.gambar_laporan1, laporan.gambar_laporan2, laporan.gambar_laporan3 "
                 . "FROM laporan, perintah, surat_tugas "
                 . "WHERE laporan.no_perintah = perintah.no_perintah AND perintah.id_surat = surat_tugas.id_surat "
-                . "AND perintah.nip = ?");
+                . "AND perintah.nip = ? "
+                . "ORDER BY no_laporan ASC");
         $stmt->bind_param("s", $nip);
         $stmt->execute();
         $stmt->bind_result($noLap, $noSurat, $perihal, $tempat, $durasi, $kategori, $waktu, $isi, $pic1, $pic2, $pic3);
@@ -350,17 +377,17 @@ class DbOperation {
             $temp['waktu'] = $waktu;
             $temp['isi'] = $isi;
             if (!is_null($pic1)) {
-                $temp['pic1'] = 'https://' . $this->server_ip . "/gambar/info/" . $pic1;
+                $temp['pic1'] = 'https://' . $this->server_ip . "/gambar/laporan/" . $pic1;
             } else {
                 $temp['pic1'] = "";
             }
             if (!is_null($pic2)) {
-                $temp['pic2'] = 'https://' . $this->server_ip . "/gambar/info/" . $pic2;
+                $temp['pic2'] = 'https://' . $this->server_ip . "/gambar/laporan/" . $pic2;
             } else {
                 $temp['pic2'] = "";
             }
             if (!is_null($pic3)) {
-                $temp['pic3'] = 'https://' . $this->server_ip . "/gambar/info/" . $pic3;
+                $temp['pic3'] = 'https://' . $this->server_ip . "/gambar/laporan/" . $pic3;
             } else {
                 $temp['pic3'] = "";
             }
@@ -369,6 +396,85 @@ class DbOperation {
         }
         $stmt->close();
         return $laporan;
+    }
+
+    function rAtasan($nip) {
+        $stmt = $this->con->prepare("SELECT nip, fungsional, pamong, program, sik, psd, subbag, wiyata "
+                . "FROM user "
+                . "WHERE nip = " . $nip);
+        $stmt->execute();
+        $stmt->bind_result($nip, $a, $b, $c, $d, $e, $f, $g);
+        $stmt->fetch();
+        $stmt->close();
+        return $this->rLaporanKaryawan($nip, $a, $b, $c, $d, $e, $f, $g);
+    }
+
+    function rLaporanKaryawan($nip, $a, $b, $c, $d, $e, $f, $g) {
+        if ($a == 0) {
+            $a = null;
+        }
+        if ($b == 0) {
+            $b = null;
+        }
+        if ($c == 0) {
+            $c = null;
+        }
+        if ($d == 0) {
+            $d = null;
+        }
+        if ($e == 0) {
+            $e = null;
+        }
+        if ($f == 0) {
+            $f = null;
+        }
+        if ($g == 0) {
+            $g = null;
+        }
+        $stmt = $this->con->prepare("SELECT target.nama, no_laporan, no_surat, surat_tugas.perihal, "
+                . "surat_tugas.tempat, surat_tugas.waktu, surat_tugas.kategori, laporan.waktu, laporan.isi, "
+                . "laporan.gambar_laporan1, laporan.gambar_laporan2, laporan.gambar_laporan3 "
+                . "FROM laporan, perintah, surat_tugas, "
+                . "(SELECT nip, nama FROM user WHERE fungsional = ? OR pamong = ? OR program = ? OR sik = ? "
+                . "OR psd = ? OR subbag = ? OR wiyata = ?) AS target WHERE laporan.no_perintah = perintah.no_perintah "
+                . "AND perintah.id_surat = surat_tugas.id_surat AND target.nip = perintah.nip AND NOT target.nip = ?");
+        $stmt->bind_param("iiiiiiis", $a, $b, $c, $d, $e, $f, $g, $nip);
+        $stmt->execute();
+        $stmt->bind_result($nama, $noLap, $noSurat, $perihal, $tempat, $durasi, $kategori, $waktu, $isi, $pic1, $pic2, $pic3);
+
+        $laporanK = array();
+
+        while ($stmt->fetch()) {
+            $temp = array();
+            $temp['nama'] = $nama;
+            $temp['noLaporan'] = $noLap;
+            $temp['noSurat'] = $noSurat;
+            $temp['kategori'] = $kategori;
+            $temp['perihal'] = $perihal;
+            $temp['tempat'] = $tempat;
+            $temp['durasi'] = $durasi;
+            $temp['waktu'] = $waktu;
+            $temp['isi'] = $isi;
+            if (!is_null($pic1)) {
+                $temp['pic1'] = 'https://' . $this->server_ip . "/gambar/laporan/" . $pic1;
+            } else {
+                $temp['pic1'] = "";
+            }
+            if (!is_null($pic2)) {
+                $temp['pic2'] = 'https://' . $this->server_ip . "/gambar/laporan/" . $pic2;
+            } else {
+                $temp['pic2'] = "";
+            }
+            if (!is_null($pic3)) {
+                $temp['pic3'] = 'https://' . $this->server_ip . "/gambar/laporan/" . $pic3;
+            } else {
+                $temp['pic3'] = "";
+            }
+
+            array_push($laporanK, $temp);
+        }
+        $stmt->close();
+        return $laporanK;
     }
 
     /*
@@ -414,14 +520,22 @@ class DbOperation {
      * When this method is called record is deleted for the given id 
      */
 
-    function deleteMsg($no) {
-        $stmt = $this->con->prepare("DELETE FROM pesan WHERE no = ? ");
+    function dInfo($no) {
+        $stmt = $this->con->prepare("DELETE FROM transaksi WHERE no_transaksi = ? ");
         $stmt->bind_param("i", $no);
-        if ($stmt->execute()) {
-            return true;
-        }
+        $stmt->execute();
+        $stmt->close();
+    }
 
-        return false;
+    function dInfos($no) {
+        $stmt = $this->con->prepare("DELETE FROM transaksi WHERE no_info = ? ");
+        $stmt->bind_param("i", $no);
+        $stmt->execute();
+        $stmt->close();
+        $stmt = $this->con->prepare("DELETE FROM info WHERE no_info = ? ");
+        $stmt->bind_param("i", $no);
+        $stmt->execute();
+        $stmt->close();
     }
 
     function deleteUser($nip) {

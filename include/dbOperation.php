@@ -62,6 +62,54 @@ class DbOperation {
         return $num_rows > 0;
     }
 
+    //Logout
+    function logout($nip) {
+        $token = "-";
+        $stmt = $this->con->prepare("UPDATE device SET token = ? WHERE nip = ?");
+        $stmt->bind_param("ss", $token, $nip);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    //Timely Notif
+    function isUnread($nip) {
+        $stmt = $this->con->prepare("SELECT COUNT(transaksi.status) FROM transaksi "
+                . "WHERE transaksi.status = 0 AND transaksi.nip = ?");
+        $stmt->bind_param("s", $nip);
+        $stmt->execute();
+        $stmt->bind_result($unread);
+
+        $unreads = array();
+        while ($stmt->fetch()) {
+            $temp = array();
+            $temp['unread'] = $unread;
+
+            array_push($unreads, $temp);
+        }
+        $stmt->close();
+
+        $sql = "SELECT token FROM device WHERE nip = " . $nip;
+        $res = mysqli_query($this->con, $sql);
+        $row = mysqli_fetch_assoc($res);
+        $tokens = $row["token"];
+
+        require_once 'push.php';
+        require_once 'firebase.php';
+
+        $push = new Push(
+                "Perhatian!", "Anda memiliki " . $temp['unread'] . " info yang belum dibaca", null
+        );
+
+        $mPushNotification = $push->getPush();
+        $tokenss = array();
+        array_push($tokenss, $tokens);
+        $devicetoken = $tokenss;
+        $firebase = new Firebase();
+        echo $firebase->send($devicetoken, $mPushNotification);
+
+        return $unreads;
+    }
+
     /*
      * The create operation
      * When this method is called a new record is created in the database
@@ -84,11 +132,27 @@ class DbOperation {
     }
 
     //Create Laporan
-    function cLaporan($perintah, $isi) {
-        $stmt = $this->con->prepare("INSERT INTO laporan (no_perintah, isi) VALUES (?, ?)");
-        $stmt->bind_param("is", $perintah, $isi);
+    function cLaporan($nop, $isi) {
+        if ($this->isPerintahExist($nop)) {
+            $stmt = $this->con->prepare("UPDATE laporan SET isi = ? WHERE no_perintah = " . $nop);
+            $stmt->bind_param("s", $isi);
+        } else {
+            $stmt = $this->con->prepare("INSERT INTO laporan (no_perintah, isi) VALUES (?, ?)");
+            $stmt->bind_param("is", $nop, $isi);
+        }
         $stmt->execute();
         $stmt->close();
+    }
+
+    //Cek Perintah
+    function isPerintahExist($nop) {
+        $stmt = $this->con->prepare("SELECT no_perintah FROM laporan WHERE no_perintah = ?");
+        $stmt->bind_param("s", $nop);
+        $stmt->execute();
+        $stmt->store_result();
+        $num_rows = $stmt->num_rows;
+        $stmt->close();
+        return $num_rows > 0;
     }
 
     //Create User

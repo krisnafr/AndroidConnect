@@ -63,6 +63,18 @@ if (isset($_GET['apicall'])) {
             }
             break;
 
+        //the LOGIN
+        case 'r_user_nip':
+            if (isset($_GET['nip'])) {
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $response['users'] = $db->rUserNip(
+                        $_GET['nip']
+                );
+            }
+            break;
+
         //the CREATE operation
         case 'c_info':
             //first check the parameters required for this request are available or not 
@@ -200,8 +212,8 @@ if (isset($_GET['apicall'])) {
                     $_POST['nop'], $_POST['isi']
             );
 
-            $response['nop'] = 'id perintah: ' . $_POST['nop'];
-            $response['isi'] = 'isi laporan' . $_POST['isi'];
+            $response['nop'] = 'no perintah: ' . $_POST['nop'];
+            $response['isi'] = 'isi laporan: ' . $_POST['isi'];
 
             require_once '../include/dbConnect.php';
             $dbc = new DbConnect();
@@ -266,6 +278,28 @@ if (isset($_GET['apicall'])) {
                 }
             }
 
+            break;
+
+        case 'unread':
+            if (isset($_GET['nip'])) {
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $response['unread'] = $db->isUnread(
+                        $_GET['nip']
+                );
+            }
+            break;
+
+        case 'logout':
+            if (isset($_GET['nip'])) {
+                $db = new DbOperation();
+                $response['error'] = false;
+                $response['message'] = 'Request successfully completed';
+                $db->logout(
+                        $_GET['nip']
+                );
+            }
             break;
 
 //the UPDATE operation
@@ -334,7 +368,7 @@ if (isset($_GET['apicall'])) {
             if (isset($_GET['no'])) {
                 $db = new DbOperation();
                 $db->dInfo($_GET['no']);
-                $response['no_transaksi'] = 'no transaksi: '.$_GET['no'];
+                $response['no_transaksi'] = 'no transaksi: ' . $_GET['no'];
             }
             break;
 
@@ -342,7 +376,7 @@ if (isset($_GET['apicall'])) {
             if (isset($_GET['no'])) {
                 $db = new DbOperation();
                 $db->dInfos($_GET['no']);
-                $response['no_info'] = 'no info: '.$_GET['no'];
+                $response['no_info'] = 'no info: ' . $_GET['no'];
             }
             break;
 

@@ -70,17 +70,6 @@ if (isset($_GET['apicall'])) {
             $response['users'] = $db->rUser();
             break;
 
-        case 'r_user_nip':
-            if (isset($_GET['nip'])) {
-                $db = new DbOperation();
-                $response['error'] = false;
-                $response['message'] = 'Request successfully completed';
-                $response['users'] = $db->rUserNip(
-                        $_GET['nip']
-                );
-            }
-            break;
-
         case 'r_sent_all':
             if (isset($_GET['nip'])) {
                 $db = new DbOperation();
